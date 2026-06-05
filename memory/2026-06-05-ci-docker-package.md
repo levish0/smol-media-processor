@@ -21,6 +21,7 @@
   - Added code comments clarifying output headers and source metadata handling.
   - Added `CHANGELOG.md` entry for `0.1.0`.
   - Added package description metadata.
+  - Added README license section.
 - Partial:
   - Local Docker build was attempted but Docker Desktop engine was unavailable.
 - Not started:

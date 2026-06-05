@@ -60,3 +60,7 @@ docker run --rm -p 6701:6701 -e MAX_INPUT_BYTES=10485760 smol-image-processor
 | `PROCESSING_TIMEOUT_SECONDS` | `20` | Sharp processing timeout |
 | `WEBP_QUALITY` | `85` | WebP quality, 1-100 |
 | `WEBP_EFFORT` | `4` | WebP encoder effort, 0-6 |
+
+## License
+
+MIT
