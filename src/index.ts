@@ -28,6 +28,7 @@ const app = new Elysia()
         const input = Buffer.from(await file.arrayBuffer());
         const processed = await processImage(input);
 
+        // These headers describe the sanitized WebP output, not the original upload.
         set.headers["content-type"] = processed.mimeType;
         set.headers["x-image-mime-type"] = processed.mimeType;
         set.headers["x-image-extension"] = processed.extension;

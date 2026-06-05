@@ -18,7 +18,9 @@
   - Removed redundant build workflow.
   - Configured Dependabot for Bun and GitHub Actions.
   - Added concise README run, Docker, and limit sections.
+  - Added code comments clarifying output headers and source metadata handling.
   - Added `CHANGELOG.md` entry for `0.1.0`.
+  - Added package description metadata.
 - Partial:
   - Local Docker build was attempted but Docker Desktop engine was unavailable.
 - Not started:
@@ -31,6 +33,7 @@
   - `.github/workflows/docker.yml`
   - `.github/workflows/build.yml`
   - `.github/dependabot.yml`
+  - `package.json`
   - `README.md`
   - `CHANGELOG.md`
 - API / interface changes:

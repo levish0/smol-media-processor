@@ -92,6 +92,8 @@ export async function processImage(
     );
   }
 
+  // Read source metadata only to preserve animation behavior and validate limits.
+  // Sharp's default output behavior strips source EXIF/ICC metadata.
   const output = await sharp(input, {
     animated: true,
     pages: -1,
