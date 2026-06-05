@@ -31,3 +31,29 @@ Response headers:
 - `x-image-size`
 - `x-image-animated`
 - `x-image-pages`
+
+## Run
+
+```bash
+bun install
+bun start
+```
+
+Default port is `6701`. Override with `PORT`.
+
+## Docker
+
+```bash
+docker build -t smol-image-processor .
+docker run --rm -p 6701:6701 smol-image-processor
+```
+
+## Limits
+
+- `MAX_INPUT_BYTES`: `10485760`
+- `MAX_OUTPUT_BYTES`: `10485760`
+- `MAX_PIXELS`: `32000000`
+- `MAX_PAGES`: `300`
+- `PROCESSING_TIMEOUT_SECONDS`: `20`
+- `WEBP_QUALITY`: `85`
+- `WEBP_EFFORT`: `4`

@@ -16,3 +16,5 @@ This folder stores milestone snapshots for agent handoff. Use it after a user-ap
 Use `memory/TEMPLATE.md`. Keep entries concise but complete enough to resume implementation.
 
 ## Current Entries
+
+- [2026-06-05 CI Docker Package](2026-06-05-ci-docker-package.md)
