@@ -1,0 +1,24 @@
+{
+  "name": "smol-image-processor",
+  "version": "0.1.0",
+  "author": "Levi Laine <shiueo.csh@gmail.com>",
+  "repository": "https://github.com/levish0/smol-image-processor",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "bun test",
+    "fmt": "bunx prettier --write src/",
+    "fmt:check": "bunx prettier --check src/"
+  },
+  "dependencies": {
+    "elysia": "^1.4.28",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "prettier": "^3.8.3"
+  },
+  "module": "src/index.ts"
+}
