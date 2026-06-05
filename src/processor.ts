@@ -1,6 +1,7 @@
 import sharp from "sharp";
 
 const SUPPORTED_FORMATS = new Set(["jpeg", "png", "gif", "webp"]);
+const INTEGER_ENV_PATTERN = /^[+-]?\d+$/;
 
 export type ProcessedImage = {
   bytes: Buffer;
@@ -61,11 +62,7 @@ export async function processImage(
     );
   }
 
-  const source = sharp(input, {
-    animated: true,
-    pages: -1,
-    limitInputPixels: options.maxPixels,
-  });
+  const source = createInputImage(input, options);
 
   const metadata = await source.metadata().catch((error: unknown) => {
     throw normalizeSharpError(error, {
@@ -94,11 +91,7 @@ export async function processImage(
 
   // Read source metadata only to preserve animation behavior and validate limits.
   // Sharp's default output behavior strips source EXIF/ICC metadata.
-  const output = await sharp(input, {
-    animated: true,
-    pages: -1,
-    limitInputPixels: options.maxPixels,
-  })
+  const output = await createInputImage(input, options)
     .rotate()
     .webp({
       quality: options.webpQuality,
@@ -190,13 +183,19 @@ function isSharpTimeoutError(error: unknown): boolean {
   );
 }
 
-function readPositiveInt(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) {
-    return fallback;
-  }
+function createInputImage(
+  input: Buffer,
+  options: ProcessorOptions,
+): sharp.Sharp {
+  return sharp(input, {
+    animated: true,
+    pages: -1,
+    limitInputPixels: options.maxPixels,
+  });
+}
 
-  const parsed = Number.parseInt(raw, 10);
+function readPositiveInt(name: string, fallback: number): number {
+  const parsed = readIntegerEnv(name);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
@@ -206,15 +205,25 @@ function readBoundedInt(
   min: number,
   max: number,
 ): number {
-  const raw = process.env[name];
-  if (!raw) {
-    return fallback;
-  }
-
-  const parsed = Number.parseInt(raw, 10);
+  const parsed = readIntegerEnv(name);
   if (!Number.isFinite(parsed)) {
     return fallback;
   }
 
   return Math.min(max, Math.max(min, parsed));
+}
+
+function readIntegerEnv(name: string): number {
+  const raw = process.env[name];
+  if (!raw) {
+    return Number.NaN;
+  }
+
+  const normalized = raw.trim();
+  if (!INTEGER_ENV_PATTERN.test(normalized)) {
+    return Number.NaN;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isSafeInteger(parsed) ? parsed : Number.NaN;
 }

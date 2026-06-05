@@ -1,6 +1,6 @@
 {
   "name": "smol-image-processor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Small Bun/Elysia service that normalizes uploaded raster images to WebP.",
   "author": "Levi Laine <shiueo.csh@gmail.com>",
   "repository": "https://github.com/levish0/smol-image-processor",

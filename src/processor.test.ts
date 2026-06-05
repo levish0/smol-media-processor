@@ -28,32 +28,59 @@ function expectSanitizedWebp(
   expect(output.size).toBe(output.bytes.length);
 }
 
-async function createAnimatedGif(): Promise<Buffer> {
-  const frame1 = await sharp({
+async function createFrame(background: string): Promise<Buffer> {
+  return sharp({
     create: {
       width: 2,
       height: 1,
       channels: 4,
-      background: "#ff0000",
+      background,
     },
   })
     .png()
     .toBuffer();
+}
 
-  const frame2 = await sharp({
-    create: {
-      width: 2,
-      height: 1,
-      channels: 4,
-      background: "#00ff00",
-    },
-  })
-    .png()
-    .toBuffer();
+async function createAnimatedGif(
+  delay = [100, 100],
+  loop = 0,
+): Promise<Buffer> {
+  const frame1 = await createFrame("#ff0000");
+  const frame2 = await createFrame("#00ff00");
 
   return sharp([frame1, frame2], { join: { animated: true } })
-    .gif({ delay: [100, 100], loop: 0 })
+    .gif({ delay, loop })
     .toBuffer();
+}
+
+async function createAnimatedWebp(
+  delay = [80, 120],
+  loop = 0,
+): Promise<Buffer> {
+  const frame1 = await createFrame("#ff0000");
+  const frame2 = await createFrame("#0000ff");
+
+  return sharp([frame1, frame2], { join: { animated: true } })
+    .webp({ delay, loop })
+    .toBuffer();
+}
+
+function readDefaultOptionsFromEnv(env: Record<string, string>) {
+  const script =
+    'import { defaultOptions } from "./src/processor.ts"; console.log(JSON.stringify(defaultOptions));';
+  const result = Bun.spawnSync({
+    cmd: [process.execPath, "-e", script],
+    cwd: process.cwd(),
+    env: { ...process.env, ...env },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr.toString());
+  }
+
+  return JSON.parse(result.stdout.toString()) as ProcessorOptions;
 }
 
 describe("processImage", () => {
@@ -116,6 +143,20 @@ describe("processImage", () => {
     expectSanitizedWebp(output, 2, 2);
   });
 
+  test("converts animated WebP and preserves animation metadata", async () => {
+    const input = await createAnimatedWebp([80, 120], 3);
+
+    const output = await processImage(input, options);
+    const metadata = await sharp(output.bytes, { animated: true }).metadata();
+
+    expectSanitizedWebp(output, 2, 1);
+    expect(output.animated).toBe(true);
+    expect(output.pages).toBe(2);
+    expect(metadata.pages).toBe(2);
+    expect(metadata.delay).toEqual([80, 120]);
+    expect(metadata.loop).toBe(3);
+  });
+
   test("accepts GIF input and emits WebP", async () => {
     const input = Buffer.from(
       "R0lGODlhAQABAIAAAP8AAP///yH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==",
@@ -128,13 +169,16 @@ describe("processImage", () => {
   });
 
   test("converts animated GIF and reports animation metadata", async () => {
-    const input = await createAnimatedGif();
+    const input = await createAnimatedGif([100, 150], 2);
 
     const output = await processImage(input, options);
+    const metadata = await sharp(output.bytes, { animated: true }).metadata();
 
     expectSanitizedWebp(output, 2, 1);
     expect(output.animated).toBe(true);
-    expect(output.pages).toBeGreaterThan(1);
+    expect(output.pages).toBe(2);
+    expect(metadata.delay).toEqual([100, 150]);
+    expect(metadata.loop).toBe(2);
   });
 
   test("rejects empty input", async () => {
@@ -193,6 +237,27 @@ describe("processImage", () => {
     expect(metadata.exif).toBeUndefined();
   });
 
+  test("applies EXIF orientation before stripping metadata", async () => {
+    const input = await sharp({
+      create: {
+        width: 3,
+        height: 5,
+        channels: 3,
+        background: "#abcdef",
+      },
+    })
+      .withMetadata({ orientation: 6 })
+      .jpeg()
+      .toBuffer();
+
+    const output = await processImage(input, options);
+    const metadata = await sharp(output.bytes).metadata();
+
+    expectSanitizedWebp(output, 5, 3);
+    expect(metadata.orientation).toBeUndefined();
+    expect(metadata.exif).toBeUndefined();
+  });
+
   test("strips ICC profile from PNG input", async () => {
     const input = await sharp({
       create: {
@@ -211,6 +276,27 @@ describe("processImage", () => {
 
     expectSanitizedWebp(output, 4, 4);
     expect(metadata.icc).toBeUndefined();
+  });
+
+  test("preserves PNG transparency", async () => {
+    const input = await sharp({
+      create: {
+        width: 1,
+        height: 1,
+        channels: 4,
+        background: { r: 255, g: 0, b: 0, alpha: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+
+    const output = await processImage(input, options);
+    const metadata = await sharp(output.bytes).metadata();
+    const raw = await sharp(output.bytes).ensureAlpha().raw().toBuffer();
+
+    expectSanitizedWebp(output, 1, 1);
+    expect(metadata.hasAlpha).toBe(true);
+    expect(raw[3]).toBe(0);
   });
 
   test("rejects oversized output", async () => {
@@ -298,6 +384,16 @@ describe("processImage", () => {
     expectSanitizedWebp(output, 1000, 1000);
   });
 
+  test("accepts animated image exactly at maxPages", async () => {
+    const input = await createAnimatedGif();
+
+    const output = await processImage(input, { ...options, maxPages: 2 });
+
+    expectSanitizedWebp(output, 2, 1);
+    expect(output.animated).toBe(true);
+    expect(output.pages).toBe(2);
+  });
+
   test("rejects animated image exceeding maxPages", async () => {
     const input = await createAnimatedGif();
 
@@ -307,5 +403,27 @@ describe("processImage", () => {
       status: 413,
       code: "too_many_frames",
     });
+  });
+});
+
+describe("defaultOptions", () => {
+  test("uses strict integer environment parsing and clamps bounded values", () => {
+    const parsed = readDefaultOptionsFromEnv({
+      MAX_INPUT_BYTES: "12px",
+      MAX_OUTPUT_BYTES: "42",
+      MAX_PIXELS: "0",
+      MAX_PAGES: "2abc",
+      PROCESSING_TIMEOUT_SECONDS: "15.9",
+      WEBP_QUALITY: "150",
+      WEBP_EFFORT: "-2",
+    });
+
+    expect(parsed.maxInputBytes).toBe(10 * 1024 * 1024);
+    expect(parsed.maxOutputBytes).toBe(42);
+    expect(parsed.maxPixels).toBe(32_000_000);
+    expect(parsed.maxPages).toBe(300);
+    expect(parsed.timeoutSeconds).toBe(20);
+    expect(parsed.webpQuality).toBe(100);
+    expect(parsed.webpEffort).toBe(0);
   });
 });

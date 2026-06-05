@@ -17,4 +17,5 @@ Use `memory/TEMPLATE.md`. Keep entries concise but complete enough to resume imp
 
 ## Current Entries
 
+- [2026-06-05 0.1.1](2026-06-05-0.1.1.md)
 - [2026-06-05 CI Docker Package](2026-06-05-ci-docker-package.md)
