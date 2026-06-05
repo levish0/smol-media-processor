@@ -17,7 +17,7 @@
   - Configured one root Docker image publishing workflow.
   - Removed redundant build workflow.
   - Configured Dependabot for Bun and GitHub Actions.
-  - Added concise README run, Docker, and limit sections.
+  - Added concise README run, Docker, and environment variable sections.
   - Added code comments clarifying output headers and source metadata handling.
   - Added `CHANGELOG.md` entry for `0.1.0`.
   - Added package description metadata.

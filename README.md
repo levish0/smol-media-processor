@@ -45,15 +45,18 @@ Default port is `6701`. Override with `PORT`.
 
 ```bash
 docker build -t smol-image-processor .
-docker run --rm -p 6701:6701 smol-image-processor
+docker run --rm -p 6701:6701 -e MAX_INPUT_BYTES=10485760 smol-image-processor
 ```
 
-## Limits
+## Environment Variables
 
-- `MAX_INPUT_BYTES`: `10485760`
-- `MAX_OUTPUT_BYTES`: `10485760`
-- `MAX_PIXELS`: `32000000`
-- `MAX_PAGES`: `300`
-- `PROCESSING_TIMEOUT_SECONDS`: `20`
-- `WEBP_QUALITY`: `85`
-- `WEBP_EFFORT`: `4`
+| Name | Default | Description |
+| --- | ---: | --- |
+| `PORT` | `6701` | HTTP server port |
+| `MAX_INPUT_BYTES` | `10485760` | Maximum upload size |
+| `MAX_OUTPUT_BYTES` | `10485760` | Maximum processed WebP size |
+| `MAX_PIXELS` | `32000000` | Maximum input pixel count |
+| `MAX_PAGES` | `300` | Maximum animated frames/pages |
+| `PROCESSING_TIMEOUT_SECONDS` | `20` | Sharp processing timeout |
+| `WEBP_QUALITY` | `85` | WebP quality, 1-100 |
+| `WEBP_EFFORT` | `4` | WebP encoder effort, 0-6 |
