@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "elysia": "^1.4.28",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
