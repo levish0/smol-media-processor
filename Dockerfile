@@ -18,7 +18,7 @@ RUN bun run build
 
 FROM base AS release
 
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl ffmpeg && rm -rf /var/lib/apt/lists/*
 
 COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=build /app/dist ./dist

@@ -1,12 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import sharp from "sharp";
-import {
-  ImageProcessingError,
-  processImage,
-  type ProcessorOptions,
-} from "./processor";
+import { MediaProcessingError } from "./errors";
+import { processImage, type ImageOptions } from "./image";
 
-const options: ProcessorOptions = {
+const options: ImageOptions = {
   maxInputBytes: 1024 * 1024,
   maxOutputBytes: 1024 * 1024,
   maxPixels: 1_000_000,
@@ -21,6 +18,7 @@ function expectSanitizedWebp(
   width: number,
   height: number,
 ) {
+  expect(output.kind).toBe("image");
   expect(output.mimeType).toBe("image/webp");
   expect(output.extension).toBe("webp");
   expect(output.width).toBe(width);
@@ -65,9 +63,9 @@ async function createAnimatedWebp(
     .toBuffer();
 }
 
-function readDefaultOptionsFromEnv(env: Record<string, string>) {
+function readImageDefaultsFromEnv(env: Record<string, string>) {
   const script =
-    'import { defaultOptions } from "./src/processor.ts"; console.log(JSON.stringify(defaultOptions));';
+    'import { imageDefaults } from "./src/image.ts"; console.log(JSON.stringify(imageDefaults));';
   const result = Bun.spawnSync({
     cmd: [process.execPath, "-e", script],
     cwd: process.cwd(),
@@ -80,7 +78,7 @@ function readDefaultOptionsFromEnv(env: Record<string, string>) {
     throw new Error(result.stderr.toString());
   }
 
-  return JSON.parse(result.stdout.toString()) as ProcessorOptions;
+  return JSON.parse(result.stdout.toString()) as ImageOptions;
 }
 
 describe("processImage", () => {
@@ -320,9 +318,9 @@ describe("processImage", () => {
   });
 
   test("uses structured processor errors", async () => {
-    const error = new ImageProcessingError(400, "example", "Example");
+    const error = new MediaProcessingError(400, "example", "Example");
 
-    expect(error.name).toBe("ImageProcessingError");
+    expect(error.name).toBe("MediaProcessingError");
     expect(error.status).toBe(400);
     expect(error.code).toBe("example");
   });
@@ -406,9 +404,9 @@ describe("processImage", () => {
   });
 });
 
-describe("defaultOptions", () => {
+describe("imageDefaults", () => {
   test("uses strict integer environment parsing and clamps bounded values", () => {
-    const parsed = readDefaultOptionsFromEnv({
+    const parsed = readImageDefaultsFromEnv({
       MAX_INPUT_BYTES: "12px",
       MAX_OUTPUT_BYTES: "42",
       MAX_PIXELS: "0",

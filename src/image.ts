@@ -1,32 +1,19 @@
 import sharp from "sharp";
+import { MediaProcessingError } from "./errors";
+import { readBoundedInt, readPositiveInt } from "./env";
+import type { ProcessedMediaBase } from "./types";
 
 const SUPPORTED_FORMATS = new Set(["jpeg", "png", "gif", "webp"]);
-const INTEGER_ENV_PATTERN = /^[+-]?\d+$/;
 
-export type ProcessedImage = {
-  bytes: Buffer;
+export type ProcessedImage = ProcessedMediaBase & {
+  kind: "image";
   mimeType: "image/webp";
   extension: "webp";
-  width: number;
-  height: number;
-  size: number;
   animated: boolean;
   pages: number;
 };
 
-export class ImageProcessingError extends Error {
-  status: number;
-  code: string;
-
-  constructor(status: number, code: string, message: string) {
-    super(message);
-    this.name = "ImageProcessingError";
-    this.status = status;
-    this.code = code;
-  }
-}
-
-export type ProcessorOptions = {
+export type ImageOptions = {
   maxInputBytes: number;
   maxOutputBytes: number;
   maxPixels: number;
@@ -36,7 +23,7 @@ export type ProcessorOptions = {
   webpEffort: number;
 };
 
-export const defaultOptions: ProcessorOptions = {
+export const imageDefaults: ImageOptions = {
   maxInputBytes: readPositiveInt("MAX_INPUT_BYTES", 10 * 1024 * 1024),
   maxOutputBytes: readPositiveInt("MAX_OUTPUT_BYTES", 10 * 1024 * 1024),
   maxPixels: readPositiveInt("MAX_PIXELS", 32_000_000),
@@ -48,14 +35,14 @@ export const defaultOptions: ProcessorOptions = {
 
 export async function processImage(
   input: Buffer,
-  options = defaultOptions,
+  options = imageDefaults,
 ): Promise<ProcessedImage> {
   if (input.length === 0) {
-    throw new ImageProcessingError(400, "empty_file", "Empty file");
+    throw new MediaProcessingError(400, "empty_file", "Empty file");
   }
 
   if (input.length > options.maxInputBytes) {
-    throw new ImageProcessingError(
+    throw new MediaProcessingError(
       413,
       "input_too_large",
       "Input file is too large",
@@ -73,7 +60,7 @@ export async function processImage(
   });
 
   if (!metadata.format || !SUPPORTED_FORMATS.has(metadata.format)) {
-    throw new ImageProcessingError(
+    throw new MediaProcessingError(
       415,
       "unsupported_format",
       `Unsupported image format: ${metadata.format ?? "unknown"}`,
@@ -82,7 +69,7 @@ export async function processImage(
 
   const pages = metadata.pages ?? 1;
   if (pages > options.maxPages) {
-    throw new ImageProcessingError(
+    throw new MediaProcessingError(
       413,
       "too_many_frames",
       "Animated image has too many frames",
@@ -111,7 +98,7 @@ export async function processImage(
     });
 
   if (output.data.length > options.maxOutputBytes) {
-    throw new ImageProcessingError(
+    throw new MediaProcessingError(
       413,
       "output_too_large",
       "Processed image is too large",
@@ -122,6 +109,7 @@ export async function processImage(
   const animated = outputPages > 1;
 
   return {
+    kind: "image",
     bytes: output.data,
     mimeType: "image/webp",
     extension: "webp",
@@ -142,13 +130,13 @@ type SharpErrorFallback = {
 function normalizeSharpError(
   error: unknown,
   fallback: SharpErrorFallback,
-): ImageProcessingError {
-  if (error instanceof ImageProcessingError) {
+): MediaProcessingError {
+  if (error instanceof MediaProcessingError) {
     return error;
   }
 
   if (isSharpPixelLimitError(error)) {
-    return new ImageProcessingError(
+    return new MediaProcessingError(
       413,
       "too_many_pixels",
       "Image exceeds the maximum pixel limit",
@@ -156,14 +144,14 @@ function normalizeSharpError(
   }
 
   if (isSharpTimeoutError(error)) {
-    return new ImageProcessingError(
+    return new MediaProcessingError(
       408,
       "processing_timeout",
       "Image processing timed out",
     );
   }
 
-  return new ImageProcessingError(
+  return new MediaProcessingError(
     fallback.fallbackStatus,
     fallback.fallbackCode,
     fallback.fallbackMessage,
@@ -183,47 +171,10 @@ function isSharpTimeoutError(error: unknown): boolean {
   );
 }
 
-function createInputImage(
-  input: Buffer,
-  options: ProcessorOptions,
-): sharp.Sharp {
+function createInputImage(input: Buffer, options: ImageOptions): sharp.Sharp {
   return sharp(input, {
     animated: true,
     pages: -1,
     limitInputPixels: options.maxPixels,
   });
-}
-
-function readPositiveInt(name: string, fallback: number): number {
-  const parsed = readIntegerEnv(name);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function readBoundedInt(
-  name: string,
-  fallback: number,
-  min: number,
-  max: number,
-): number {
-  const parsed = readIntegerEnv(name);
-  if (!Number.isFinite(parsed)) {
-    return fallback;
-  }
-
-  return Math.min(max, Math.max(min, parsed));
-}
-
-function readIntegerEnv(name: string): number {
-  const raw = process.env[name];
-  if (!raw) {
-    return Number.NaN;
-  }
-
-  const normalized = raw.trim();
-  if (!INTEGER_ENV_PATTERN.test(normalized)) {
-    return Number.NaN;
-  }
-
-  const parsed = Number(normalized);
-  return Number.isSafeInteger(parsed) ? parsed : Number.NaN;
 }

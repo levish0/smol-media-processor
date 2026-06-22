@@ -1,13 +1,14 @@
 import { Elysia, t } from "elysia";
-import { ImageProcessingError, processImage } from "./processor";
+import { MediaProcessingError } from "./errors";
+import { processMedia } from "./media";
 
 const PORT = Number.parseInt(process.env.PORT ?? "6701", 10);
 
 const app = new Elysia()
-  .get("/", () => "Image Processor")
+  .get("/", () => "Media Processor")
   .get("/health", () => ({
     status: "ok",
-    service: "smol-image-processor",
+    service: "smol-media-processor",
     timestamp: new Date().toISOString(),
   }))
   .post(
@@ -26,21 +27,33 @@ const app = new Elysia()
         }
 
         const input = Buffer.from(await file.arrayBuffer());
-        const processed = await processImage(input);
+        const processed = await processMedia(input);
 
-        // These headers describe the sanitized WebP output, not the original upload.
+        // These headers describe the sanitized output, not the original upload.
         set.headers["content-type"] = processed.mimeType;
-        set.headers["x-image-mime-type"] = processed.mimeType;
-        set.headers["x-image-extension"] = processed.extension;
-        set.headers["x-image-width"] = processed.width.toString();
-        set.headers["x-image-height"] = processed.height.toString();
-        set.headers["x-image-size"] = processed.size.toString();
-        set.headers["x-image-animated"] = processed.animated ? "true" : "false";
-        set.headers["x-image-pages"] = processed.pages.toString();
+        set.headers["x-media-kind"] = processed.kind;
+        set.headers["x-media-mime-type"] = processed.mimeType;
+        set.headers["x-media-extension"] = processed.extension;
+        set.headers["x-media-width"] = processed.width.toString();
+        set.headers["x-media-height"] = processed.height.toString();
+        set.headers["x-media-size"] = processed.size.toString();
+
+        if (processed.kind === "image") {
+          set.headers["x-media-animated"] = processed.animated
+            ? "true"
+            : "false";
+          set.headers["x-media-pages"] = processed.pages.toString();
+        } else {
+          set.headers["x-media-duration"] =
+            processed.durationSeconds.toString();
+          set.headers["x-media-has-audio"] = processed.hasAudio
+            ? "true"
+            : "false";
+        }
 
         return processed.bytes;
       } catch (error) {
-        if (error instanceof ImageProcessingError) {
+        if (error instanceof MediaProcessingError) {
           set.status = error.status;
           return {
             success: false,
@@ -49,12 +62,12 @@ const app = new Elysia()
           };
         }
 
-        console.error("Unexpected image processing error:", error);
+        console.error("Unexpected media processing error:", error);
         set.status = 500;
         return {
           success: false,
           code: "internal_error",
-          error: "Failed to process image",
+          error: "Failed to process media",
         };
       }
     },
@@ -67,4 +80,4 @@ const app = new Elysia()
   )
   .listen(PORT);
 
-console.log(`Image Processor running at http://localhost:${app.server?.port}`);
+console.log(`Media Processor running at http://localhost:${app.server?.port}`);
